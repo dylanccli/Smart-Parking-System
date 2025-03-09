@@ -1,101 +1,209 @@
-import Image from "next/image";
+"use client"; // Mark this component as a Client Component
+
+import { useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
+  const [driverName, setDriverName] = useState<string>("");
+  const [licensePlate, setLicensePlate] = useState<string>("");
+  const [dateTime, setDateTime] = useState<string>("");
+  const [duration, setDuration] = useState<string>("1");
+  const [isPaid, setIsPaid] = useState<boolean>(false); // Track payment status
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleSpotClick = (spot: string) => {
+    setSelectedSpot(spot);
+  };
+
+  const handlePayment = () => {
+    if (!selectedSpot || !driverName || !licensePlate || !dateTime || !duration) {
+      alert("Please fill out all fields and select a parking spot.");
+      return;
+    }
+    alert(
+      `Proceeding to Payment...\n\nDriver: ${driverName}\nLicense Plate: ${licensePlate}\nSpot: ${selectedSpot}\nDate/Time: ${dateTime}\nDuration: ${duration} hour(s)\nTotal: $${
+        duration === "1" ? "5" : duration === "3" ? "10" : "20"
+      }`
+    );
+    setIsPaid(true); // Mark payment as completed
+  };
+
+  const handleReservation = () => {
+    if (!isPaid) {
+      alert("Please complete the payment first.");
+      return;
+    }
+    alert(
+      `Reservation Successful!\n\nDriver: ${driverName}\nLicense Plate: ${licensePlate}\nSpot: ${selectedSpot}\nDate/Time: ${dateTime}\nDuration: ${duration} hour(s)`
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
+      {/* Header */}
+      <header className="w-full bg-gray-800 py-6 shadow-lg">
+        <h1 className="text-4xl font-bold text-center text-blue-400">
+          TMU SMART PARK
+        </h1>
+        <p className="text-center text-gray-400 mt-2">
+          Reserve your parking spot in seconds!
+        </p>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex flex-col md:flex-row gap-8 w-full max-w-6xl mt-8">
+        {/* Left Side: Parking Spot Map */}
+        <div className="flex-1 bg-gray-800 p-6 rounded-lg shadow-2xl">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-400">
+            Parking Spot Map
+          </h2>
+          <div className="grid grid-cols-3 gap-4">
+            {["A1", "A2", "A3", "B1", "B2", "B3"].map((spot) => (
+              <div
+                key={spot}
+                className={`p-6 border-2 border-gray-700 rounded-lg text-center cursor-pointer transition-all transform hover:scale-105 ${
+                  selectedSpot === spot
+                    ? "bg-blue-600 text-white border-blue-400"
+                    : "bg-gray-700 hover:bg-gray-600"
+                }`}
+                onClick={() => handleSpotClick(spot)}
+              >
+                <span className="text-lg font-semibold">{spot}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-sm text-gray-400">
+            Selected Spot:{" "}
+            <span className="font-bold text-blue-400">
+              {selectedSpot || "None"}
+            </span>
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Right Side: Reservation Form */}
+        <div className="flex-1 bg-gray-800 p-6 rounded-lg shadow-2xl">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-400">
+            Reservation Details
+          </h2>
+          <div className="space-y-6">
+            {/* Driver's Name */}
+            <div>
+              <label className="block text-lg font-semibold mb-2 text-gray-300">
+                DRIVER'S NAME
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your name"
+                value={driverName}
+                onChange={(e) => setDriverName(e.target.value)}
+                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400"
+              />
+            </div>
+
+            {/* License Plate Number */}
+            <div>
+              <label className="block text-lg font-semibold mb-2 text-gray-300">
+                LICENSE PLATE NUMBER
+              </label>
+              <input
+                type="text"
+                placeholder="Enter license plate number"
+                value={licensePlate}
+                onChange={(e) => setLicensePlate(e.target.value)}
+                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400"
+              />
+            </div>
+
+            {/* Date/Time */}
+            <div>
+              <label className="block text-lg font-semibold mb-2 text-gray-300">
+                CHOOSE DAY / TIME
+              </label>
+              <input
+                type="datetime-local"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
+                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400"
+              />
+            </div>
+
+            {/* Duration */}
+            <div>
+              <label className="block text-lg font-semibold mb-2 text-gray-300">
+                CHOOSE HOW LONG
+              </label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400"
+              >
+                <option value="1">1 hour</option>
+                <option value="3">3 hours</option>
+                <option value="24">24 hours</option>
+              </select>
+            </div>
+
+            {/* Selected Spot */}
+            <div>
+              <label className="block text-lg font-semibold mb-2 text-gray-300">
+                SELECTED SPOT
+              </label>
+              <input
+                type="text"
+                value={selectedSpot || "None"}
+                readOnly
+                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400"
+              />
+            </div>
+
+            {/* Typical Pricing */}
+            <div className="bg-gray-700 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold mb-3 text-blue-400">
+                TYPICAL PRICING
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">1 hour</span>
+                  <span className="text-blue-400 font-bold">$5</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">3+ hours</span>
+                  <span className="text-blue-400 font-bold">$10</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">24 hours</span>
+                  <span className="text-blue-400 font-bold">$20</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Price Display */}
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-400">
+                PRICE: ${duration === "1" ? "5" : duration === "3" ? "10" : "20"}
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-between">
+              <button
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                onClick={handlePayment}
+              >
+                PAY NOW
+              </button>
+              <button
+                className={`bg-blue-600 text-white px-6 py-2 rounded-lg transition-all transform hover:scale-105 ${
+                  !isPaid ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+                }`}
+                onClick={handleReservation}
+                disabled={!isPaid} // Disable reservation until payment is completed
+              >
+                RESERVE NOW
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
