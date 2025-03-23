@@ -1,18 +1,21 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set, get, onValue } from "firebase/database";
 import { remove } from "firebase/database";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyBwOJqPgdxSMBKOH88AmYHrTuSBRDBLkrE",
-  authDomain: "smartparkingsystem-8612f.firebaseapp.com",
-  databaseURL: "https://smartparkingsystem-8612f-default-rtdb.firebaseio.com",
-  projectId: "smartparkingsystem-8612f",
-  storageBucket: "smartparkingsystem-8612f.appspot.com",
-  messagingSenderId: "319668020851",
-  appId: "1:319668020851:web:606ed548b430aecbaaac06",
-  measurementId: "G-Y3JT3E3CVZ",
+  apiKey: process.env.NEXT_PUBLIC_APIKEY, 
+  authDomain: process.env.NEXT_PUBLIC_AUTHDOM, 
+  databaseURL: process.env.NEXT_PUBLIC_DBURL, 
+  projectId: process.env.NEXT_PUBLIC_PJID, 
+  storageBucket: process.env.NEXT_PUBLIC_STOREBUCKET, 
+  messagingSenderId: process.env.NEXT_PUBLIC_MSENDID, 
+  appId: process.env.NEXT_PUBLIC_APPID, 
+  measurementId: process.env.NEXT_PUBLIC_MEASUREMENTID
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
