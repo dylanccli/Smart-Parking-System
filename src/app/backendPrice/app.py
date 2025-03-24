@@ -2,9 +2,11 @@ from flask import Flask, jsonify, request
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
+from flask_cors import CORS
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app)
 
 # Initialize Firebase
 cred = credentials.Certificate("serviceAccountKey.json")
@@ -13,57 +15,78 @@ firebase_admin.initialize_app(cred)
 # Initialize Firestore
 db = firestore.client()
 
-# Function to get the day of the week from a timestamp
-def get_day_of_week(timestamp: str):
-    date_obj = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M")
-    return date_obj.strftime("%A")
-
 # Route to get dynamic pricing
 @app.route('/pricing', methods=['GET'])
 def get_pricing():
-    base_price = 5  # Base price per hour
-    occupancy = 0.5  # Simulated occupancy (replace with real data later)
-    timestamp = request.args.get('timestamp', datetime.now().strftime("%Y-%m-%dT%H:%M"))  # Get timestamp from query params
-    is_peak_hour = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M").hour in range(8, 18)  # Peak hours: 8 AM to 6 PM
-    day_of_week = get_day_of_week(timestamp)  # Get day of the week
-    price = calculate_price(base_price, occupancy, is_peak_hour, day_of_week)
-    return jsonify({"price": price, "day_of_week": day_of_week})
+    try:
+        # Get and validate timestamp from frontend
+        timestamp = request.args.get('timestamp')
+        if not timestamp:
+            return jsonify({"error": "Timestamp parameter is required"}), 400
 
-# Function to calculate dynamic pricing
+        # Get occupancy from frontend (default to 0.5 if not provided)
+        occupancy = float(request.args.get('occupancy', 0.5))
+
+        # Parse timestamp with validation
+        try:
+            # Handle both with and without seconds
+            if len(timestamp) == 16:  # Format: YYYY-MM-DDTHH:MM
+                dt_obj = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M")
+            else:  # Format with seconds: YYYY-MM-DDTHH:MM:SS
+                dt_obj = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+        except ValueError as e:
+            return jsonify({"error": f"Invalid timestamp format: {str(e)}"}), 400
+
+        # Calculate pricing factors
+        base_price = 5  # Base price per hour
+        
+        is_peak_hour = dt_obj.hour in range(8, 18)  # 8 AM to 6 PM
+        day_of_week = dt_obj.strftime("%A")
+        
+        # Calculate final price
+        price = calculate_price(
+            base_price=base_price,
+            occupancy=occupancy,  # Use occupancy from frontend
+            is_peak_hour=is_peak_hour,
+            day_of_week=day_of_week
+        )
+
+        return jsonify({
+            "price": price,
+            "day_of_week": day_of_week,
+            "is_peak_hour": is_peak_hour,
+            "timestamp": dt_obj.isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Updated price calculation function
 def calculate_price(base_price, occupancy, is_peak_hour, day_of_week):
+    multipliers = {
+        'peak_hour': 1.2,
+        'high_demand': 1.1,
+        'low_demand': 0.9,
+        'weekend': 1.5
+    }
+    
     price = base_price
+    
+    # Apply peak hour multiplier
     if is_peak_hour:
-        price *= 1.2  # 20% increase during peak hours
+        price *= multipliers['peak_hour']
+    
+    # Apply demand-based pricing
     if occupancy > 0.8:
-        price *= 1.1  # 10% increase for high demand
+        price *= multipliers['high_demand']
     elif occupancy < 0.3:
-        price *= 0.9  # 10% decrease for low demand
-    # Adjust price for weekends
+        price *= multipliers['low_demand']
+    
+    # Apply weekend pricing
     if day_of_week in ["Saturday", "Sunday"]:
-        price *= 1.5  # 50% increase on weekends
+        price *= multipliers['weekend']
+    
     return round(price, 2)
 
-# Function to simulate price adjustments throughout the week
-def simulate_weekly_pricing():
-    base_price = 5
-    occupancy = 0.5
-    timestamps = [
-        "2025-03-24T10:16",  # Monday
-        "2025-03-25T10:16",  # Tuesday
-        "2025-03-26T10:16",  # Wednesday
-        "2025-03-27T10:16",  # Thursday
-        "2025-03-28T10:16",  # Friday
-        "2025-03-29T10:16",  # Saturday
-        "2025-03-30T10:16",  # Sunday
-    ]
-    for timestamp in timestamps:
-        is_peak_hour = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M").hour in range(8, 18)
-        day_of_week = get_day_of_week(timestamp)
-        price = calculate_price(base_price, occupancy, is_peak_hour, day_of_week)
-        print(f"Timestamp: {timestamp}, Day: {day_of_week}, Price: {price}")
-
 if __name__ == '__main__':
-    # Simulate weekly pricing
-    simulate_weekly_pricing()
-    # Run the Flask app
     app.run(debug=True)

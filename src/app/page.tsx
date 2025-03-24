@@ -16,6 +16,9 @@ export default function Home() {
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
   const [reservationNumber, setReservationNumber] = useState<string>("");
   const [activeReservations, setActiveReservations] = useState<any[]>([]);
+  const [dynamicPricePerHour, setDynamicPricePerHour] = useState<number>(5);
+  const [activeSensors, setActiveSensors] = useState<Set<string>>(new Set());
+  const [simulatedOccupancy, setSimulatedOccupancy] = useState<number>(0);
   
 
   // State to track the current page
@@ -34,6 +37,72 @@ export default function Home() {
     duration: number | string;
     pricePaid: number;
   };
+
+  // Calculate occupancy based on active reservations
+  const calculateOccupancy = () => {
+    const totalSpots = 8; // Total number of parking spots (A1, A2, ..., B4)
+    const reservedSpots = activeReservations.length; // Number of reserved spots
+    return reservedSpots / totalSpots; // Occupancy ratio
+  };
+
+  useEffect(() => {
+    const iotInterval = setInterval(() => {
+      const spots = ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"];
+      const randomSpot = spots[Math.floor(Math.random() * spots.length)];
+      
+      setActiveSensors(prev => {
+        const newSet = new Set(prev);
+        newSet.add(randomSpot);
+        return newSet;
+      });
+  
+      setTimeout(() => {
+        setActiveSensors(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(randomSpot);
+          return newSet;
+        });
+      }, 1500);
+  
+      setSimulatedOccupancy(prev => Math.min(100, Math.max(0, prev + (Math.random() * 2 - 1))));
+    }, 3000);
+  
+    return () => clearInterval(iotInterval);
+  }, []);
+  
+
+  // Fetch dynamic pricing from the backend
+  useEffect(() => {
+    const fetchDynamicPricing = async () => {
+      if (!dateTime) return;
+
+      const occupancy = calculateOccupancy(); // Calculate occupancy
+
+      try {
+        // Send the timestamp and occupancy to the backend
+        const response = await fetch(
+          `http://localhost:5000/pricing?timestamp=${encodeURIComponent(dateTime)}&occupancy=${occupancy}`
+        );
+        const data = await response.json();
+        setDynamicPricePerHour(data.price); // Update the dynamic price
+      } catch (error) {
+        console.error("Error fetching dynamic pricing:", error);
+      }
+    };
+
+    fetchDynamicPricing(); // Call the function to fetch dynamic pricing
+  }, [dateTime, activeReservations]); // Re-run when dateTime or activeReservations changes
+  const calculateTotalPrice = () => {
+    const durationHours = parseFloat(duration);
+    return (dynamicPricePerHour * durationHours + 1).toFixed(2);
+  };
+
+  // Update Typical Pricing section
+  const typicalPricing = [
+    { duration: 1, label: "1 hour" },
+    //{ duration: 3, label: "3+ hours" },
+    { duration: 4.5, label: "24 hours" },
+  ];
   
   useEffect(() => {
     
@@ -157,12 +226,27 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-col md:flex-row gap-8 w-full max-w-6xl mt-8">
+      <div className="flex flex-col md:flex-row gap-8 w-full max-w-6xl mt-8 items-start">
         {/* Left Side: Parking Spot Map */}
-        <div className="flex-1 bg-gray-800 p-6 rounded-lg shadow-2xl border border-gray-700">
+        <div className="flex-1 bg-gray-800 p-6 rounded-lg shadow-2xl border border-gray-700 mt-12 md:mt-40">
           <h2 className="text-2xl font-semibold mb-4 text-blue-400">
             Parking Spot Map
           </h2>
+          <div className="mb-4 flex items-center justify-between px-2 py-1 bg-gray-900 rounded-lg text-sm">
+            <div className="flex items-center space-x-2">
+              <span className="flex items-center">
+                <span className="w-2 h-2 mr-1 bg-green-400 rounded-full"></span>
+                Available
+              </span>
+              <span className="flex items-center">
+                <span className="w-2 h-2 mr-1 bg-red-500 rounded-full"></span>
+                Occupied
+              </span>
+            </div>
+            <div className="text-blue-400">
+              <span className="text-yellow-400">IoT</span> Network: {Math.floor(simulatedOccupancy)}% Active
+            </div>
+          </div>
           <div className="grid grid-cols-4 gap-4">
             {["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"].map((spot) => (
               <div
@@ -176,9 +260,30 @@ export default function Home() {
                 }`}
                 onClick={() => handleSpotClick(spot)}
               >
-                <span className="text-lg font-semibold">{spot}</span>
+
+                {/* IoT Status Indicator */}
+                <div className={`absolute top-2 right-2 w-3 h-3 rounded-full 
+                  ${isSpotReserved(spot) ? 
+                    'bg-red-500' : 
+                    'bg-green-400'} 
+                  ${activeSensors.has(spot) ? 'sensor-active' : ''}`}
+                />
+
+                {/* Occupancy Effect */}
+                {!isSpotReserved(spot) && (
+                  <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent via-blue-200 to-transparent"
+                      style={{transform: `rotate(${simulatedOccupancy * 3.6}`}} />
+                )}
+
+                <span className="text-lg font-semibold relative z-10">{spot}</span>
+                
+                {/* Data Transmission Animation */}
+                {activeSensors.has(spot) && (
+                  <div className="absolute -inset-1 border-2 border-blue-400 rounded-lg animate-pulse" />
+                )}
               </div>
             ))}
+            
           </div>
           <p className="mt-4 text-sm text-gray-400">
             Selected Spot:{" "}
@@ -186,7 +291,32 @@ export default function Home() {
               {selectedSpot || "None"}
             </span>
           </p>
+          {/* Pricing Disclaimer */}
+          <div className="mt-4 pt-3 border-t border-gray-600">
+                  <p className="text-sm text-gray-400">
+                    Pricing fluctuates based on:
+                  </p>
+                  <div className="text-xs text-gray-500 space-y-1 mt-2">
+                    <div className="flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>Current parking occupancy</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>Peak hours (7-9am, 4-6pm)</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>Weekend vs weekday rates</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 italic">
+                    Prices update every 15 minutes based on demand
+                  </p>
+                </div>
         </div>
+
+        
 
         {/* Right Side: Reservation Form, Payment Form, or Confirmation Page */}
         <div className="flex-1 bg-gray-800 p-6 rounded-lg shadow-2xl border border-gray-700 relative overflow-hidden">
@@ -260,8 +390,12 @@ export default function Home() {
                       className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400 transition-all"
                     >
                       <option value="1">1 hour</option>
+                      <option value="2">2 hours</option>
                       <option value="3">3 hours</option>
-                      <option value="24">24 hours</option>
+                      <option value="4">4 hours</option>
+                      <option value="5">5 hours</option>
+                      <option value="4.5">24 hours</option>
+                      
                     </select>
                   </div>
                 </div>
@@ -280,26 +414,25 @@ export default function Home() {
                 </div>
 
                 {/* Typical Pricing */}
+                {/* Updated Pricing Displays */}
                 <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
                   <h3 className="text-lg font-semibold mb-3 text-blue-400">
-                    TYPICAL PRICING
+                    DYNAMIC PRICING
                   </h3>
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">1 hour</span>
-                      <span className="text-blue-400 font-bold">$5</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">3+ hours</span>
-                      <span className="text-blue-400 font-bold">$10</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">24 hours</span>
-                      <span className="text-blue-400 font-bold">$20</span>
-                    </div>
+                    {typicalPricing.map(({ duration, label }) => (
+                      <div key={label} className="flex justify-between items-center">
+                        <span className="text-gray-300">{label}</span>
+                        <span className="text-blue-400 font-bold">
+                          ${(dynamicPricePerHour * duration).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
+                
+             
                 {/* Price Display */}
                 <div className="text-center">
                   <div className="bg-gray-700 p-4 rounded-lg border border-gray-600 shadow-lg">
@@ -309,7 +442,7 @@ export default function Home() {
                       <div className="flex justify-between items-center">
                         <span className="text-gray-300">Price:</span>
                         <span className="text-blue-400 font-bold">
-                          ${duration === "1" ? "5" : duration === "3" ? "10" : "20"}
+                          ${(dynamicPricePerHour * parseFloat(duration)).toFixed(2)}
                         </span>
                       </div>
                       {/* Online Fee */}
@@ -323,7 +456,7 @@ export default function Home() {
                       <div className="flex justify-between items-center">
                         <span className="text-2xl text-gray-300 font-bold">Total:</span>
                         <span className="text-2xl text-blue-400 font-bold">
-                          ${duration === "1" ? "6" : duration === "3" ? "11" : "21"}
+                          ${calculateTotalPrice()}
                         </span>
                       </div>
                     </div>
