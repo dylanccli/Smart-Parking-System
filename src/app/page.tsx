@@ -252,13 +252,23 @@ export default function Home() {
               <div
                 key={spot}
                 className={`p-6 border-2 border-gray-700 rounded-lg text-center cursor-pointer transition-all transform hover:scale-105 ${
+                  currentPage !== "confirmation" ? "hover:scale-105" : ""
+                  } ${
+                    isSpotReserved(spot) || currentPage === "confirmation"
+                      ? "cursor-not-allowed"
+                      : "cursor-pointer"
+                  } ${
                   isSpotReserved(spot)
                     ? "bg-gray-900 cursor-not-allowed"
                     : selectedSpot === spot
                     ? "bg-blue-600 text-white border-blue-400 shadow-glow"
                     : "bg-gray-700 hover:bg-gray-600"
                 }`}
-                onClick={() => handleSpotClick(spot)}
+                onClick={
+                  currentPage !== "confirmation" 
+                    ? () => handleSpotClick(spot)
+                    : undefined
+                }
               >
 
                 {/* IoT Status Indicator */}
