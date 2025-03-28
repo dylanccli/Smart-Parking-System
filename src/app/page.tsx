@@ -19,6 +19,7 @@ export default function Home() {
   const [dynamicPricePerHour, setDynamicPricePerHour] = useState<number>(5);
   const [activeSensors, setActiveSensors] = useState<Set<string>>(new Set());
   const [simulatedOccupancy, setSimulatedOccupancy] = useState<number>(0);
+  const [minDateTime, setMinDateTime] = useState<string>("");
   
 
   // State to track the current page
@@ -44,6 +45,9 @@ export default function Home() {
     const reservedSpots = activeReservations.length; // Number of reserved spots
     return reservedSpots / totalSpots; // Occupancy ratio
   };
+
+  
+
 
   useEffect(() => {
     const iotInterval = setInterval(() => {
@@ -117,17 +121,47 @@ export default function Home() {
   
 
   // Function to check if a spot is reserved
+  //By default shows real-time parking data
+  //Once date is selected shows availability based on that selecetd date 
+  //Checks for hourly time conflicts 
   const isSpotReserved = (spot: string) => {
-    return activeReservations.some((reservation) => reservation.spotId === spot);
+    const now = Date.now();
+
+    if (!dateTime) {
+      // Only block if the reservation is active RIGHT NOW
+      return activeReservations.some((reservation) => {
+        if (reservation.spotId !== spot) return false;
+
+        const resStart = new Date(reservation.selectedDate).getTime();
+        const resDuration = parseFloat(reservation.duration);
+        const resEnd = resStart + resDuration * 60 * 60 * 1000;
+
+        return now >= resStart && now < resEnd;
+      });
+    }
+
+    // If date is selected, use date-aware overlap logic
+    const selectedStart = new Date(dateTime).getTime();
+    const selectedEnd =
+      selectedStart + parseFloat(duration) * 60 * 60 * 1000;
+
+    return activeReservations.some((reservation) => {
+      if (reservation.spotId !== spot) return false;
+
+      const resStart = new Date(reservation.selectedDate).getTime();
+      const resDuration = parseFloat(reservation.duration);
+      const resEnd = resStart + resDuration * 60 * 60 * 1000;
+
+      return selectedStart < resEnd && selectedEnd > resStart;
+    });
   };
 
-  const handleSpotClick = (spot: string) => {
-    if (isSpotReserved(spot)) {
-      alert("This spot is currently reserved.");
-      return;
-    }
-    setSelectedSpot(spot);
-  };
+    const handleSpotClick = (spot: string) => {
+      // Only allow selection if spot is not reserved
+      if (!isSpotReserved(spot)) {
+        setSelectedSpot(spot);
+      }
+    };
 
   const handlePayment = () => {
     if (!selectedSpot || !driverName || !licensePlate || !dateTime || !duration) {
@@ -213,6 +247,22 @@ export default function Home() {
     );
   };
 
+  const isDateTimeValid = () => {
+    if (!dateTime) return false;
+    
+    const selectedTime = new Date(dateTime).getTime();
+    const now = new Date().getTime();
+    const tenMinutesFromNow = now + (10 * 60 * 1000);
+    console.log()
+    return selectedTime >= tenMinutesFromNow;
+  };
+
+  useEffect(() => {
+    if (!isDateTimeValid()) {
+      setSelectedSpot(null);
+    }
+  }, [isDateTimeValid]); 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex flex-col items-center p-4">
       {/* Header */}
@@ -265,7 +315,7 @@ export default function Home() {
                     : "bg-gray-700 hover:bg-gray-600"
                 }`}
                 onClick={
-                  currentPage !== "confirmation" 
+                  currentPage !== "confirmation" && isDateTimeValid()
                     ? () => handleSpotClick(spot)
                     : undefined
                 }
@@ -363,7 +413,7 @@ export default function Home() {
                   {/* License Plate Number */}
                   <div>
                     <label className="block text-lg font-semibold mb-2 text-gray-300">
-                      LICENSE PLATE NUMBER
+                      LICENSE PLATE
                     </label>
                     <input
                       type="text"
@@ -386,8 +436,14 @@ export default function Home() {
                       type="datetime-local"
                       value={dateTime}
                       onChange={(e) => setDateTime(e.target.value)}
+                      min={minDateTime}
                       className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400 transition-all"
                     />
+                    {dateTime && !isDateTimeValid() && (
+                      <p className="text-red-400 text-sm mt-1">
+                        Reservations must be made at least 10 minutes in advance
+                      </p>
+                    )}
                   </div>
                   {/* Duration */}
                   <div>
@@ -486,7 +542,7 @@ export default function Home() {
                       !areAllFieldsFilled() || !isPaid ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
                     }`}
                     onClick={handleReservation}
-                    disabled={!areAllFieldsFilled() || !isPaid}
+                    disabled={!areAllFieldsFilled() || !isPaid || !isDateTimeValid()}
                   >
                     RESERVE NOW
                   </button>
